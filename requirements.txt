@@ -1,0 +1,7 @@
+streamlit>=1.40
+pandas>=2.0
+altair>=5.0
+gspread>=6.0
+google-auth>=2.30
+openpyxl>=3.1
+tzdata>=2024.1  # required for zoneinfo timezones on Windows (Streamlit Cloud has system tz)
