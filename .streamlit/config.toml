@@ -1,0 +1,13 @@
+# Brand theme, taken from the Pharmacy Direct logo (navy #01528A, amber #F6A925).
+# Finer styling lives in theme.py, which reads its colours from config.py.
+[theme]
+base = "light"
+primaryColor = "#01528A"           # logo navy — widget accents, focus rings
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F8FB"
+textColor = "#16202B"
+font = "sans serif"
+
+[server]
+# Keep uploads small; this app doesn't need large files.
+maxUploadSize = 5

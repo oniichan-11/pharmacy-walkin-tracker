@@ -1,0 +1,18 @@
+# Secrets — never commit real credentials or PINs
+.streamlit/secrets.toml
+
+# Local data store (used only when running without Google Sheets)
+data/requests.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

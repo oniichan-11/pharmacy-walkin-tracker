@@ -36,6 +36,8 @@ def altair_theme() -> dict:
         "config": {
             "background": "transparent",
             "font": "Inter, 'Segoe UI', system-ui, sans-serif",
+            "title": {"font": "Sora, Inter, sans-serif", "fontWeight": 600,
+                      "color": config.INK, "fontSize": 14, "anchor": "start"},
             "view": {"stroke": "transparent", "continuousHeight": 260},
             "axis": {
                 "labelColor": config.INK_MUTED,
@@ -87,43 +89,66 @@ def _css() -> str:
     c = config
     return f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap');
 
+/* Body = clean grotesque (Inter); display/headings = geometric (Sora).
+   A two-face pairing, echoing the display+text split of premium pharma sites,
+   in the Pharmacy Direct navy/amber palette. */
 html, body, [class*="st-"], button, input, textarea, select {{
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }}
 
-.stApp {{ background: {c.SURFACE_ALT}; }}
+/* White-dominant canvas: structure comes from whitespace + hairlines, not
+   grey fills. */
+.stApp {{ background: {c.SURFACE}; }}
 
-/* Main content sits on a white card for separation from the app background */
 .block-container {{
-    padding-top: 2.2rem;
-    padding-bottom: 3rem;
-    max-width: 1280px;
+    padding-top: 2.4rem;
+    padding-bottom: 4rem;
+    max-width: 1220px;
 }}
 
-h1, h2, h3, h4 {{ color: {c.INK}; letter-spacing: -0.01em; font-weight: 650; }}
-h2 {{ font-size: 1.45rem; }}
-h3 {{ font-size: 1.15rem; }}
+/* Airy, light-weight display headings. High-specificity selectors so they win
+   over Streamlit's default heading styles. */
+h1, h2, h3, h4,
+[data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4,
+[data-testid="stHeading"] {{
+    font-family: 'Sora', 'Inter', system-ui, sans-serif !important;
+    color: {c.INK}; letter-spacing: -0.02em; font-weight: 600;
+}}
+[data-testid="stMarkdownContainer"] h2 {{ font-size: 1.5rem; }}
+[data-testid="stMarkdownContainer"] h3 {{ font-size: 1.18rem; }}
+p, span, label, li {{ font-weight: 400; }}
 
-/* ---- Brand header bar ------------------------------------------------- */
+/* ---- Brand hero header ------------------------------------------------- */
 .pd-header {{
-    display: flex; align-items: center; gap: 0.9rem;
-    background: linear-gradient(95deg, {c.BRAND_NAVY} 0%, {c.BRAND_NAVY_DARK} 100%);
-    border-radius: 14px;
-    padding: 0.95rem 1.25rem;
-    margin-bottom: 1.4rem;
-    box-shadow: 0 2px 10px rgba(1,82,138,0.16);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: 1.1rem;
+    background: linear-gradient(100deg, {c.BRAND_NAVY} 0%, {c.BRAND_NAVY_DARK} 100%);
+    border-radius: 20px;
+    padding: 1.5rem 1.9rem;
+    margin-bottom: 1.8rem;
+    box-shadow: 0 10px 30px -12px rgba(1,82,138,0.45);
+}}
+/* soft amber glow, top-right — a quiet nod to the logo's second colour */
+.pd-header::after {{
+    content: ""; position: absolute; top: -60%; right: -8%;
+    width: 320px; height: 320px; border-radius: 50%;
+    background: radial-gradient(circle, {c.BRAND_AMBER}33 0%, transparent 70%);
 }}
 .pd-header .pd-bar {{
-    width: 5px; height: 38px; border-radius: 3px;
+    width: 6px; align-self: stretch; border-radius: 6px;
     background: {c.BRAND_AMBER}; flex: none;
 }}
 .pd-header h1 {{
-    color: #fff; font-size: 1.3rem; font-weight: 650; margin: 0; line-height: 1.25;
+    font-family: 'Sora', sans-serif;
+    color: #fff; font-size: 1.7rem; font-weight: 600; margin: 0;
+    line-height: 1.15; letter-spacing: -0.02em;
 }}
 .pd-header p {{
-    color: rgba(255,255,255,0.78); font-size: 0.85rem; margin: 0.15rem 0 0 0;
+    color: rgba(255,255,255,0.82); font-size: 0.92rem; margin: 0.35rem 0 0 0;
+    max-width: 60ch;
 }}
 
 /* ---- Sidebar ---------------------------------------------------------- */
@@ -134,16 +159,16 @@ section[data-testid="stSidebar"] {{
 section[data-testid="stSidebar"] .pd-side-meta {{
     background: {c.SURFACE_ALT};
     border: 1px solid {c.BORDER};
-    border-radius: 10px;
-    padding: 0.7rem 0.85rem;
-    margin-bottom: 0.5rem;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.6rem;
 }}
 section[data-testid="stSidebar"] .pd-side-meta .k {{
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em;
     color: {c.INK_MUTED}; font-weight: 600;
 }}
 section[data-testid="stSidebar"] .pd-side-meta .v {{
-    font-size: 0.95rem; color: {c.INK}; font-weight: 600; margin-bottom: 0.45rem;
+    font-size: 0.95rem; color: {c.INK}; font-weight: 600; margin-bottom: 0.5rem;
 }}
 section[data-testid="stSidebar"] .pd-side-meta .v:last-child {{ margin-bottom: 0; }}
 
@@ -151,62 +176,101 @@ section[data-testid="stSidebar"] .pd-side-meta .v:last-child {{ margin-bottom: 0
 div[data-testid="stMetric"] {{
     background: #fff;
     border: 1px solid {c.BORDER};
-    border-left: 4px solid {c.BRAND_NAVY};
-    border-radius: 12px;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 1px 3px rgba(22,32,43,0.05);
+    border-radius: 18px;
+    padding: 1.15rem 1.25rem 1rem;
+    box-shadow: 0 6px 20px -14px rgba(22,32,43,0.4);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}}
+div[data-testid="stMetric"]:hover {{
+    box-shadow: 0 10px 26px -14px rgba(1,82,138,0.5);
+    transform: translateY(-2px);
+}}
+div[data-testid="stMetric"]::before {{
+    content: ""; display: block; width: 26px; height: 3px; border-radius: 3px;
+    background: {c.BRAND_NAVY}; margin-bottom: 0.7rem;
 }}
 div[data-testid="stMetric"] label p {{
-    font-size: 0.76rem !important; color: {c.INK_MUTED} !important;
-    font-weight: 600 !important; letter-spacing: 0.01em;
+    font-size: 0.74rem !important; color: {c.INK_MUTED} !important;
+    font-weight: 600 !important; letter-spacing: 0.02em; text-transform: uppercase;
 }}
 div[data-testid="stMetricValue"] {{
-    font-size: 1.7rem !important; font-weight: 650 !important; color: {c.INK} !important;
+    font-family: 'Sora', sans-serif !important;
+    font-size: 2rem !important; font-weight: 600 !important; color: {c.INK} !important;
     font-variant-numeric: proportional-nums;   /* never tabular on big numbers */
+    line-height: 1.1;
 }}
-/* Accent the two tiles that drive buying decisions */
-div[data-testid="stColumn"]:nth-child(3) div[data-testid="stMetric"] {{
-    border-left-color: {config.STATUS_COLORS['Out of stock']};
+/* Accent the top keyline of the two tiles that drive buying decisions */
+div[data-testid="stColumn"]:nth-child(3) div[data-testid="stMetric"]::before {{
+    background: {config.STATUS_COLORS['Out of stock']};
 }}
-div[data-testid="stColumn"]:nth-child(4) div[data-testid="stMetric"] {{
-    border-left-color: {config.STATUS_COLORS['Not in range']};
+div[data-testid="stColumn"]:nth-child(4) div[data-testid="stMetric"]::before {{
+    background: {config.STATUS_COLORS['Not in range']};
 }}
 
 /* ---- Panels & tables --------------------------------------------------- */
 div[data-testid="stExpander"] {{
-    border: 1px solid {c.BORDER}; border-radius: 12px; background: #fff;
+    border: 1px solid {c.BORDER}; border-radius: 16px; background: #fff;
+    box-shadow: 0 4px 16px -14px rgba(22,32,43,0.35);
 }}
+div[data-testid="stExpander"] summary {{ font-weight: 500; }}
 div[data-testid="stDataFrame"], div[data-testid="stTable"] {{
-    border: 1px solid {c.BORDER}; border-radius: 10px;
+    border: 1px solid {c.BORDER}; border-radius: 14px; overflow: hidden;
 }}
 
-/* ---- Buttons ----------------------------------------------------------- */
-button[kind="primary"] {{
-    background: {c.BRAND_NAVY} !important;
-    border: none !important; border-radius: 9px !important;
-    font-weight: 600 !important; padding: 0.55rem 1rem !important;
-    box-shadow: 0 1px 4px rgba(1,82,138,0.22);
+/* ---- Buttons — the pill (fully rounded, light weight, generous padding) - */
+.stButton button, .stFormSubmitButton button, div[data-testid="stFormSubmitButton"] button {{
+    border-radius: 999px !important;
+    padding: 0.6rem 1.5rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em;
+    transition: all 0.15s ease;
 }}
-button[kind="primary"]:hover {{ background: {c.BRAND_NAVY_DARK} !important; }}
-button[kind="secondary"] {{
-    border-radius: 9px !important; border-color: {c.BORDER} !important;
-    font-weight: 550 !important;
+button[kind="primary"], button[kind="primaryFormSubmit"] {{
+    background: {c.BRAND_NAVY} !important;
+    color: #fff !important;
+    border: 1.6px solid {c.BRAND_NAVY} !important;
+    box-shadow: 0 6px 18px -8px rgba(1,82,138,0.55);
+}}
+button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {{
+    background: {c.BRAND_NAVY_DARK} !important;
+    border-color: {c.BRAND_NAVY_DARK} !important;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px -8px rgba(1,82,138,0.6);
+}}
+button[kind="secondary"], button[kind="secondaryFormSubmit"] {{
+    background: #fff !important;
+    color: {c.BRAND_NAVY} !important;
+    border: 1.6px solid {c.BORDER} !important;
+}}
+button[kind="secondary"]:hover, button[kind="secondaryFormSubmit"]:hover {{
+    border-color: {c.BRAND_NAVY} !important;
+    color: {c.BRAND_NAVY_DARK} !important;
+}}
+
+/* Inputs: rounded, hairline, navy focus ring */
+div[data-baseweb="input"], div[data-baseweb="select"] > div, .stTextArea textarea {{
+    border-radius: 11px !important;
 }}
 
 /* ---- Nav ---------------------------------------------------------------- */
+section[data-testid="stSidebarNav"] a {{ border-radius: 999px; }}
 section[data-testid="stSidebarNav"] a[aria-current="page"] {{
     background: {c.BRAND_NAVY_TINT} !important;
-    border-radius: 8px; font-weight: 600;
+    font-weight: 600;
 }}
+section[data-testid="stSidebarNav"] a[aria-current="page"] span {{ color: {c.BRAND_NAVY} !important; }}
 
-/* ---- Section label ------------------------------------------------------ */
+/* ---- Section eyebrow label --------------------------------------------- */
 .pd-eyebrow {{
-    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
-    color: {c.INK_MUTED}; font-weight: 700; margin: 0 0 0.35rem 0;
+    display: inline-block;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: {c.BRAND_NAVY}; font-weight: 700; margin: 0 0 0.4rem 0;
+    padding: 0.15rem 0.6rem; border-radius: 999px;
+    background: {c.BRAND_NAVY_TINT};
 }}
 
 /* ---- Alerts ------------------------------------------------------------- */
-div[data-testid="stAlert"] {{ border-radius: 10px; }}
+div[data-testid="stAlert"] {{ border-radius: 14px; }}
 </style>
 """
 
@@ -218,7 +282,7 @@ def apply() -> None:
 
 
 def header(title: str, subtitle: str = "") -> None:
-    """Brand header bar with the amber keyline from the logo."""
+    """Brand hero header — navy block, amber keyline + glow, airy Sora title."""
     sub = f"<p>{subtitle}</p>" if subtitle else ""
     st.markdown(
         f'<div class="pd-header"><div class="pd-bar"></div>'
