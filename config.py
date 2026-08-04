@@ -41,30 +41,31 @@ BRANCHES = [
 #    "Other" is always appended automatically so nobody is ever blocked.
 #    >>> EDIT THESE with real first names / initials.
 # --------------------------------------------------------------------------- #
+# Optional known-staff rosters per branch. Leave a branch's list empty to make
+# the sign-in a free-text "Your name" box (no pre-selected default). Populate a
+# list to offer those names as quick-pick options instead.
 STAFF_BY_BRANCH = {
-    "Adenta Branch": ["Nii Acquaye Adotey"],
-    "Atomic Branch": ["Nii Acquaye Adotey"],
+    "Adenta Branch": [],
+    "Atomic Branch": [],
 }
 
 # --------------------------------------------------------------------------- #
 # 4. What kind of item was requested (buying-decision categories)
 # --------------------------------------------------------------------------- #
-# These mirror the shelf/category taxonomy in the Adenta stock-taking master
-# list, so a category auto-filled from the catalog and one picked by hand use
-# exactly the same vocabulary. Keep in sync with build_catalog.py output.
+# The cleaned category taxonomy the app uses everywhere. build_catalog.py
+# normalises the raw inventory's messy categories (case variants, synonyms,
+# blanks) onto exactly these buckets, so a category auto-filled from the catalog
+# and one picked by hand share the same vocabulary. Keep the two in sync.
 CATEGORIES = [
-    "Antibiotics, Painkillers & Injectables",
-    "Baby Foods",
-    "Chronic Medications",
+    "OTC",
+    "Pharmacy medicine",
+    "Prescription medicine",
+    "Restricted medicine",
     "Cosmetics",
-    "Cough/Cold Syrups, Antacids & GI OTC",
-    "Front Shelves (General OTC)",
-    "Hematinics, Multivitamins & Related Liquids",
-    "Herbals",
-    "Pads, Tampons, Devices, Toothpastes & Misc.",
-    "Supplements & Multivitamins (Shelf 2)",
-    "Suppositories, Syringes, Condoms & Reproductive Care",
-    "Other / Not on our shelves",
+    "Herbal",
+    "Baby & infant",
+    "Food, drinks & essentials",
+    "Other / uncategorised",
 ]
 CATEGORY_FALLBACK = CATEGORIES[-1]
 

@@ -57,10 +57,8 @@ def _sidebar_context() -> None:
 def main() -> None:
     theme.apply()
 
-    # 1. Gate: branch PIN, then staff name.
+    # 1. Sign in: pick branch + name (no PIN).
     if not auth.require_login():
-        st.stop()
-    if not auth.pick_staff():
         st.stop()
 
     # 2. Signed in — show context and navigation.

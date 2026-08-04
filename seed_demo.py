@@ -47,8 +47,14 @@ def _catalog_pool() -> list[tuple[str, str]]:
     return [(n, c if c in config.CATEGORIES else config.CATEGORY_FALLBACK) for n, c in rows]
 
 
+# Demo-only staff names, used when config has no roster (the app itself now
+# takes the name as free text at sign-in).
+_DEMO_STAFF = ["Ama", "Kwesi", "Efua", "Yaw", "Akosua"]
+
+
 def _staff_for(branch: str) -> str:
-    return random.choice(config.STAFF_BY_BRANCH.get(branch, ["Staff"]))
+    roster = config.STAFF_BY_BRANCH.get(branch) or _DEMO_STAFF
+    return random.choice(roster)
 
 
 def build(rows: int, days: int) -> pd.DataFrame:
