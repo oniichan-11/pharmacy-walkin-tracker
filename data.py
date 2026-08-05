@@ -312,6 +312,10 @@ class SupabaseBackend:
         # ("Invalid path…"): trailing slash / whitespace on the URL, and a
         # schema-qualified or padded table name.
         url = str(conf["url"]).strip().rstrip("/")
+        # The client appends "/rest/v1" itself; strip it if the full REST
+        # endpoint was pasted (a very common mistake) to avoid a doubled path.
+        if url.endswith("/rest/v1"):
+            url = url[: -len("/rest/v1")].rstrip("/")
         key = str(conf["key"]).strip()
         table = str(conf.get("table") or config.WORKSHEET_NAME).strip()
         if "." in table:                      # e.g. "public.requests" -> "requests"
