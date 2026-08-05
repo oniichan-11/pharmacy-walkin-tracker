@@ -98,6 +98,13 @@ html, body, [class*="st-"], button, input, textarea, select {{
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }}
 
+/* ...but Streamlit's Material Symbols icons (expander arrows, sidebar collapse,
+   etc.) must keep their icon font, or the rule above prints the raw ligature
+   text like "keyboard_arrow_right" instead of the glyph. */
+[data-testid="stIconMaterial"] {{
+    font-family: 'Material Symbols Rounded', 'Material Symbols Outlined' !important;
+}}
+
 /* White-dominant canvas: structure comes from whitespace + hairlines, not
    grey fills. */
 .stApp {{ background: {c.SURFACE}; }}
