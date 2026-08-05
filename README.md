@@ -151,54 +151,85 @@ Everything sector-specific lives in **`config.py`** — edit it, nothing else:
 
 ---
 
-## Go live: Google Sheets + Streamlit Community Cloud
+## Go live: Supabase (Postgres) + Streamlit Community Cloud
 
-The app stores data in **Google Sheets** so it survives Streamlit Cloud
-redeploys (the cloud filesystem is wiped on every reboot — a plain CSV/SQLite
-file there would silently lose data). Setup is one-time, ~15 minutes.
+Storage must survive Streamlit Cloud redeploys (its filesystem is wiped on every
+reboot, so a plain CSV/SQLite file there silently loses data). The recommended
+backend is **Supabase** — free hosted Postgres, no card required, and it doesn't
+depend on Google (many Google orgs now block the service-account keys the Sheets
+backend needs). Setup is one-time, ~10 minutes.
 
-### 1. Create the Google Sheet
-Create a blank Google Sheet named e.g. `PharmacyDirect Walk-In Requests`.
-Copy its URL — you'll need it. (The app creates the `requests` worksheet and
-header row automatically on first write.)
+The app picks its backend automatically from secrets:
+**Supabase** (if configured) → **Google Sheets** (if configured) → local CSV.
 
-### 2. Create a service account (the app's robot identity)
-1. Go to <https://console.cloud.google.com/> → create/select a project.
-2. **APIs & Services → Enable APIs** → enable both:
-   - **Google Sheets API**
-   - **Google Drive API**
-3. **APIs & Services → Credentials → Create credentials → Service account.**
-   Give it a name, create it.
-4. Open the service account → **Keys → Add key → Create new key → JSON.**
-   A `.json` file downloads. Keep it private.
-5. Open the Google Sheet → **Share** → paste the service account's
-   `client_email` (looks like `...@...iam.gserviceaccount.com`) → give it
-   **Editor** access.
+### 1. Create the Supabase project + table
+1. Sign up at <https://supabase.com> (free) → **New project** (pick any region;
+   remember the database password, though the app doesn't need it).
+2. Open the **SQL Editor** → run this once to create the table:
+
+   ```sql
+   create table if not exists requests (
+     request_id text primary key,
+     timestamp_iso text,
+     branch text,
+     staff text,
+     item_raw text,
+     item_clean text,
+     in_catalog boolean,
+     catalog_match text,
+     category text,
+     quantity integer,
+     status text,
+     est_value numeric,
+     customer_contact text,
+     notify_customer boolean,
+     notes text,
+     resolved boolean,
+     resolved_at text
+   );
+   ```
+
+### 2. Get the credentials
+In **Project Settings**:
+- **Data API → Project URL** → this is `url`.
+- **API Keys → `service_role`** (reveal + copy) → this is `key`. It's a secret
+  used only server-side by the app (Streamlit secrets are never sent to the
+  browser); it bypasses row-level security so no policies are needed.
 
 ### 3. Configure secrets
-Copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and fill in:
-- `[branch_pins]` — a real PIN per branch (keys must match `config.BRANCHES`)
-  plus an `admin_pin`.
-- `[gsheets].spreadsheet` — the Sheet URL from step 1.
-- `[gcp_service_account]` — paste every field from the downloaded JSON key.
+Put the following in the app's Secrets (or a git-ignored
+`.streamlit/secrets.toml` for local runs):
 
-Run `streamlit run app.py` again — the sidebar should now read
-**"Storage: Google Sheets"**.
+```toml
+[supabase]
+url   = "https://YOUR-PROJECT-REF.supabase.co"
+key   = "YOUR-SERVICE-ROLE-KEY"
+table = "requests"
+
+[branch_pins]
+admin_pin = "4321"   # optional; guards the edit/delete controls only
+```
+
+Run `streamlit run app.py` — the sidebar should read **"Storage · Supabase"**.
 
 ### 4. Deploy to Streamlit Community Cloud (free)
-1. Push this folder to a **GitHub** repo. `.gitignore` already excludes
-   `secrets.toml` and the local CSV, so no secrets are committed.
-2. Go to <https://share.streamlit.io> → **New app** → pick the repo/branch and
-   `app.py` as the entry point.
-3. In the app's **Settings → Secrets**, paste the *contents* of your
-   `secrets.toml` (don't upload the file).
-4. Deploy. Share the URL + branch PINs with staff. Done.
+1. Push this folder to a **GitHub** repo. `.gitignore` excludes `secrets.toml`
+   and the local CSV, so no secrets are committed.
+2. <https://share.streamlit.io> → **New app** → pick the repo/branch, `app.py`.
+3. App **Settings → Secrets** → paste the block from step 3 → **Save**.
+4. Done. Log a test request, then check the `requests` table in Supabase.
+
+### Getting your data as a spreadsheet
+The **Browse & resolve** screen has **CSV** and **Excel** download buttons that
+export what's on screen (apply filters first to export a slice, or none for
+everything). So you keep spreadsheet access without Google Sheets.
 
 ---
 
 ## How the data is stored
 
-One row per request, in a worksheet named `requests`:
+One row per request, in the `requests` table (Supabase) / worksheet (Sheets) /
+CSV (local) — same columns everywhere:
 
 | column | meaning |
 |---|---|
@@ -214,8 +245,8 @@ One row per request, in a worksheet named `requests`:
 | `notes` | free text |
 | `resolved`, `resolved_at` | has the GM actioned it |
 
-Because it's a normal Google Sheet, you can also open, filter, and pivot the
-data directly in Sheets or export it to your existing `.xlsx` workflow.
+Export any time from the **Browse & resolve** screen (CSV / Excel), or view the
+rows directly in the Supabase Table Editor.
 
 ---
 
@@ -226,7 +257,7 @@ walk-in-demand-tracker/
 ├── app.py              # entry point: auth gate + navigation wiring
 ├── config.py           # ← the ONE file you edit to adapt/re-skin
 ├── auth.py             # branch-PIN + staff-pick sign-in, admin unlock
-├── data.py             # storage layer (Google Sheets  OR  local CSV)
+├── data.py             # storage layer (Supabase / Google Sheets / local CSV)
 ├── catalog.py          # catalog lookup, fuzzy matching, auto-tagging
 ├── build_catalog.py    # rebuild data/catalog.csv from the stock-take xlsx
 ├── theme.py            # brand CSS + Altair chart defaults (reads config.py)

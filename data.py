@@ -128,6 +128,14 @@ def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # Backend selection
 # --------------------------------------------------------------------------- #
+def _has_supabase_secrets() -> bool:
+    try:
+        conf = st.secrets["supabase"]
+        return bool(conf.get("url")) and bool(conf.get("key"))
+    except Exception:
+        return False
+
+
 def _has_gsheet_secrets() -> bool:
     try:
         return "gcp_service_account" in st.secrets and "gsheets" in st.secrets
@@ -227,8 +235,94 @@ def _cell(v) -> str:
     return str(v)
 
 
+# --------------------------------------------------------------------------- #
+# Supabase (hosted Postgres) — the recommended cloud backend. Uses the REST
+# client over HTTPS, so it avoids the IPv4/IPv6 direct-connection issues that
+# plague raw Postgres connections from Streamlit Cloud.
+# --------------------------------------------------------------------------- #
+_TEXT_COLS = [
+    "request_id", "timestamp_iso", "branch", "staff", "item_raw", "item_clean",
+    "catalog_match", "category", "status", "customer_contact", "notes", "resolved_at",
+]
+_BOOL_COLS = ["in_catalog", "notify_customer", "resolved"]
+
+
+def _to_pg(row: dict) -> dict:
+    """Serialise one record into JSON types Postgres will accept: proper bools,
+    an int quantity, a null (not '') est_value, and strings elsewhere."""
+    import math
+
+    def is_nan(v):
+        return isinstance(v, float) and math.isnan(v)
+
+    out = {c: row.get(c) for c in config.COLUMNS}
+
+    ev = out.get("est_value")
+    out["est_value"] = None if (ev is None or ev == "" or is_nan(ev)) else float(ev)
+
+    try:
+        out["quantity"] = int(out.get("quantity") or 1)
+    except (TypeError, ValueError):
+        out["quantity"] = 1
+
+    for b in _BOOL_COLS:
+        v = out.get(b)
+        out[b] = v.strip().lower() in ("true", "1", "yes") if isinstance(v, str) else bool(v)
+
+    for s in _TEXT_COLS:
+        v = out.get(s)
+        out[s] = "" if (v is None or is_nan(v)) else str(v)
+
+    return out
+
+
+class SupabaseBackend:
+    """Hosted-Postgres backend via the Supabase REST client."""
+
+    name = "Supabase"
+
+    def __init__(self):
+        from supabase import create_client
+
+        conf = st.secrets["supabase"]
+        self.table_name = conf.get("table", config.WORKSHEET_NAME)
+        self.client = create_client(conf["url"], conf["key"])
+
+    def _table(self):
+        return self.client.table(self.table_name)
+
+    def read(self) -> pd.DataFrame:
+        rows = (self._table().select("*").execute().data) or []
+        if not rows:
+            return _empty_frame()
+        return pd.DataFrame(rows)
+
+    def append(self, row: dict) -> None:
+        self._table().insert(_to_pg(row)).execute()
+
+    def overwrite(self, df: pd.DataFrame) -> None:
+        """Reconcile the store to `df`: upsert every desired row (by request_id),
+        then delete any rows that are no longer present. Avoids the data-loss
+        window of a delete-all-then-reinsert."""
+        out = df.reindex(columns=config.COLUMNS)
+        records = [_to_pg(r) for r in out.to_dict("records")]
+        desired = {r["request_id"] for r in records if r.get("request_id")}
+
+        if records:
+            self._table().upsert(records, on_conflict="request_id").execute()
+
+        current = self.read()
+        if not current.empty:
+            for rid in current["request_id"].tolist():
+                if rid not in desired:
+                    self._table().delete().eq("request_id", rid).execute()
+
+
 @st.cache_resource(show_spinner=False)
 def _get_backend():
+    # Priority: Supabase (recommended cloud DB) -> Google Sheets -> local CSV.
+    if _has_supabase_secrets():
+        return SupabaseBackend()
     if _has_gsheet_secrets():
         return GoogleSheetBackend()
     return LocalCsvBackend(config.LOCAL_CSV_PATH)
