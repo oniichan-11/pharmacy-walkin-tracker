@@ -202,6 +202,14 @@ def _persist(master: pd.DataFrame, edited: pd.DataFrame) -> None:
 
 def _export_buttons(view: pd.DataFrame) -> None:
     export = _display_columns(view).drop(columns=["request_id"], errors="ignore")
+
+    # Excel (openpyxl) cannot write timezone-aware datetimes. Our `timestamp`
+    # is tz-aware (local zone), so present it as a clean tz-naive string for
+    # both exports — same wall-clock time, spreadsheet-safe.
+    for col in export.columns:
+        if isinstance(export[col].dtype, pd.DatetimeTZDtype):
+            export[col] = export[col].dt.strftime("%Y-%m-%d %H:%M")
+
     csv = export.to_csv(index=False).encode("utf-8")
 
     buf = io.BytesIO()
