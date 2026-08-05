@@ -276,6 +276,29 @@ def _to_pg(row: dict) -> dict:
     return out
 
 
+class StorageError(RuntimeError):
+    """A storage backend failed in a way the user should see plainly (rather
+    than as Streamlit's redacted crash). Carries a safe, actionable message —
+    PostgREST error bodies describe schema/auth, never row data."""
+
+
+def _supabase_guard(op, what: str):
+    """Run a Supabase call; on failure raise StorageError with the real reason."""
+    try:
+        return op()
+    except Exception as e:  # noqa: BLE001 — we deliberately surface everything
+        code = getattr(e, "code", None)
+        msg = getattr(e, "message", None) or str(e) or type(e).__name__
+        hint = getattr(e, "hint", None)
+        detail = f"Supabase {what} failed"
+        if code:
+            detail += f" [{code}]"
+        detail += f": {msg}"
+        if hint:
+            detail += f" — hint: {hint}"
+        raise StorageError(detail) from None
+
+
 class SupabaseBackend:
     """Hosted-Postgres backend via the Supabase REST client."""
 
@@ -292,13 +315,14 @@ class SupabaseBackend:
         return self.client.table(self.table_name)
 
     def read(self) -> pd.DataFrame:
-        rows = (self._table().select("*").execute().data) or []
+        res = _supabase_guard(lambda: self._table().select("*").execute(), "read")
+        rows = res.data or []
         if not rows:
             return _empty_frame()
         return pd.DataFrame(rows)
 
     def append(self, row: dict) -> None:
-        self._table().insert(_to_pg(row)).execute()
+        _supabase_guard(lambda: self._table().insert(_to_pg(row)).execute(), "write")
 
     def overwrite(self, df: pd.DataFrame) -> None:
         """Reconcile the store to `df`: upsert every desired row (by request_id),
@@ -309,13 +333,19 @@ class SupabaseBackend:
         desired = {r["request_id"] for r in records if r.get("request_id")}
 
         if records:
-            self._table().upsert(records, on_conflict="request_id").execute()
+            _supabase_guard(
+                lambda: self._table().upsert(records, on_conflict="request_id").execute(),
+                "save",
+            )
 
         current = self.read()
         if not current.empty:
             for rid in current["request_id"].tolist():
                 if rid not in desired:
-                    self._table().delete().eq("request_id", rid).execute()
+                    _supabase_guard(
+                        lambda rid=rid: self._table().delete().eq("request_id", rid).execute(),
+                        "delete",
+                    )
 
 
 @st.cache_resource(show_spinner=False)

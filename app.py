@@ -72,7 +72,20 @@ def main() -> None:
         st.Page(dashboard.render, title="Dashboard", icon="📊", url_path="dashboard"),
         st.Page(browse.render, title="Browse & resolve", icon="🗂️", url_path="browse"),
     ]
-    st.navigation(pages).run()
+    try:
+        st.navigation(pages).run()
+    except data.StorageError as e:
+        st.error(f"⚠️ {e}")
+        st.info(
+            "**Storage isn't reachable.** Common causes:\n"
+            "- The `requests` table doesn't exist in the **public** schema "
+            "(run the CREATE TABLE SQL from the README).\n"
+            "- The `[supabase] key` isn't the **service_role** key "
+            "(the publishable / anon key can be rejected) — re-copy it from "
+            "Project Settings → API Keys.\n"
+            "- The `[supabase] url` belongs to a different project than the key."
+        )
+        st.stop()
 
 
 if __name__ == "__main__":
