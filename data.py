@@ -308,8 +308,18 @@ class SupabaseBackend:
         from supabase import create_client
 
         conf = st.secrets["supabase"]
-        self.table_name = conf.get("table", config.WORKSHEET_NAME)
-        self.client = create_client(conf["url"], conf["key"])
+        # Defensively clean common paste mistakes that cause PGRST125
+        # ("Invalid path…"): trailing slash / whitespace on the URL, and a
+        # schema-qualified or padded table name.
+        url = str(conf["url"]).strip().rstrip("/")
+        key = str(conf["key"]).strip()
+        table = str(conf.get("table") or config.WORKSHEET_NAME).strip()
+        if "." in table:                      # e.g. "public.requests" -> "requests"
+            table = table.split(".")[-1].strip()
+        table = table.strip("/")
+
+        self.table_name = table
+        self.client = create_client(url, key)
 
     def _table(self):
         return self.client.table(self.table_name)
