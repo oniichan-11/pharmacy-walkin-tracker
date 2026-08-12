@@ -74,6 +74,15 @@ def _entry_form(branch: str, staff: str, df) -> None:
                 min_value=0.0, value=0.0, step=1.0,
             )
 
+        # Feature: log several items the same customer asked for, in one go, so a
+        # single callback (name + phone below) covers all of them.
+        more_items = st.text_area(
+            "More items from the same customer (optional) — one per line",
+            placeholder="Metformin 1g\nGlucometer test strips\n…",
+            help="Each line is logged as its own request but shares the customer "
+                 "and callback details you enter below.",
+        )
+
         with st.expander("Override auto-tagging, or add callback details"):
             st.caption(
                 "Category and stock status are filled in automatically from the "
@@ -86,14 +95,19 @@ def _entry_form(branch: str, staff: str, df) -> None:
             with oc2:
                 manual_status = st.selectbox("Stock status", config.STATUSES)
 
-            cc1, cc2 = st.columns([2, 1])
-            with cc1:
+            st.markdown(f"**{config.LABELS['customer'].capitalize()} & callback**")
+            cn1, cn2 = st.columns(2)
+            with cn1:
+                customer_name = st.text_input(
+                    f"{config.LABELS['customer'].capitalize()} name (optional)",
+                    placeholder="Who to ask for on the callback",
+                )
+            with cn2:
                 customer_contact = st.text_input(
                     f"{config.LABELS['customer'].capitalize()} phone (optional)",
                     placeholder="For a callback when it's in stock",
                 )
-            with cc2:
-                notify = st.checkbox("Wants a callback")
+            notify = st.checkbox("Wants a callback")
             notes = st.text_area(
                 "Notes", placeholder="Brand insistence, dosage, alternatives offered…"
             )
@@ -105,49 +119,77 @@ def _entry_form(branch: str, staff: str, df) -> None:
     if not submitted:
         return
 
-    # Catalog pick wins; otherwise fall back to whatever was typed.
+    # Assemble every item: the primary (catalog pick or typed) + each extra line.
+    items: list[str] = []
     from_catalog = picked != config.CATALOG_NOT_LISTED
-    item = picked if from_catalog else typed.strip()
+    primary = picked if from_catalog else typed.strip()
+    if primary:
+        items.append(primary)
+    for line in (more_items or "").splitlines():
+        line = line.strip()
+        if line:
+            items.append(line)
+    # De-duplicate case-insensitively while preserving order.
+    seen, unique_items = set(), []
+    for it in items:
+        if it.casefold() not in seen:
+            seen.add(it.casefold())
+            unique_items.append(it)
 
-    if not item:
+    if not unique_items:
         st.error(
-            f"Please either pick an {config.LABELS['item']} from the catalog "
-            "or type one in the box below it."
+            f"Please pick or type at least one {config.LABELS['item']} "
+            "(the search, the free-text box, or the 'more items' list)."
         )
         return
 
-    tag = catalog.classify(item)
-    category = manual_category if override else tag["category"]
-    status = manual_status if override else tag["status"]
+    # One shared timestamp so a multi-item request reads as a single visit.
+    shared_ts = data.now_local().isoformat(timespec="seconds")
+    close_matches: list[str] = []
 
-    row = data.new_request_row(
-        branch=branch,
-        staff=staff,
-        item_raw=item,
-        category=category,
-        quantity=int(quantity),
-        status=status,
-        in_catalog=tag["in_catalog"],
-        catalog_match=tag["catalog_match"],
-        est_value=est_value if est_value > 0 else None,
-        customer_contact=customer_contact,
-        notify_customer=notify,
-        notes=notes,
-    )
-    data.add_request(row)
+    for idx, item in enumerate(unique_items):
+        tag = catalog.classify(item)
+        category = manual_category if override else tag["category"]
+        status = manual_status if override else tag["status"]
+        row = data.new_request_row(
+            branch=branch,
+            staff=staff,
+            item_raw=item,
+            category=category,
+            quantity=int(quantity) if idx == 0 else 1,   # primary keeps the qty
+            status=status,
+            in_catalog=tag["in_catalog"],
+            catalog_match=tag["catalog_match"],
+            est_value=(est_value if (idx == 0 and est_value > 0) else None),
+            customer_name=customer_name,
+            customer_contact=customer_contact,
+            notify_customer=notify,
+            notes=notes,
+            timestamp_iso=shared_ts,
+        )
+        data.add_request(row)
+        if not tag["in_catalog"] and tag["suggestions"]:
+            close_matches.append(f"**{item}** → {', '.join(tag['suggestions'][:3])}")
 
-    st.success(f"Saved **{item}** — {config.STATUS_SHORT.get(status, status)} · {category}")
+    if len(unique_items) == 1:
+        st.success(f"Saved **{unique_items[0]}**.")
+    else:
+        st.success(
+            f"Saved **{len(unique_items)} items** for this "
+            f"{config.LABELS['customer']}"
+            + (f" ({customer_name.strip()})" if customer_name.strip() else "")
+            + "."
+        )
     st.toast("Logged ✔", icon="✅")
 
-    # Only warn on genuinely unmatched free text: if it looks a lot like
-    # something we DO stock, the "not in range" tag is probably wrong.
-    if not tag["in_catalog"] and tag["suggestions"]:
+    # Aggregate the typo-guard: any free-typed items that resemble stocked lines.
+    if close_matches:
         st.warning(
-            "Heads up — this was logged as **not in our range**, but it looks "
-            "close to something we stock:\n\n"
-            + "\n".join(f"- {s}" for s in tag["suggestions"])
-            + "\n\nIf one of those is what they wanted, edit this entry on the "
-            "**Browse & resolve** screen so it counts as out-of-stock instead.",
+            "Heads up — these were logged as **not in our range**, but look close "
+            "to things we stock:\n\n"
+            + "\n".join(f"- {m}" for m in close_matches)
+            + "\n\nIf any is what they meant, fix it on **Browse & resolve** so it "
+            "counts as out-of-stock instead.",
             icon="💡",
         )
 

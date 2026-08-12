@@ -58,15 +58,21 @@ def new_request_row(
     in_catalog: bool = False,
     catalog_match: str = "",
     est_value: Optional[float] = None,
+    customer_name: str = "",
     customer_contact: str = "",
     notify_customer: bool = False,
     notes: str = "",
+    timestamp_iso: Optional[str] = None,
 ) -> dict:
-    """Build one fully-formed record dict matching config.COLUMNS."""
+    """Build one fully-formed record dict matching config.COLUMNS.
+
+    `timestamp_iso` may be passed so several items logged for one customer in a
+    single submit share the exact same timestamp (grouping them as one visit).
+    """
     clean = normalize_item(item_raw)
     return {
         "request_id": uuid.uuid4().hex,
-        "timestamp_iso": now_local().isoformat(timespec="seconds"),
+        "timestamp_iso": timestamp_iso or now_local().isoformat(timespec="seconds"),
         "branch": branch,
         "staff": staff,
         "item_raw": item_raw,
@@ -77,6 +83,7 @@ def new_request_row(
         "quantity": int(quantity),
         "status": status,
         "est_value": "" if est_value in (None, "") else float(est_value),
+        "customer_name": customer_name.strip(),
         "customer_contact": customer_contact.strip(),
         "notify_customer": bool(notify_customer),
         "notes": notes.strip(),
@@ -242,7 +249,8 @@ def _cell(v) -> str:
 # --------------------------------------------------------------------------- #
 _TEXT_COLS = [
     "request_id", "timestamp_iso", "branch", "staff", "item_raw", "item_clean",
-    "catalog_match", "category", "status", "customer_contact", "notes", "resolved_at",
+    "catalog_match", "category", "status", "customer_name", "customer_contact",
+    "notes", "resolved_at",
 ]
 _BOOL_COLS = ["in_catalog", "notify_customer", "resolved"]
 
@@ -390,6 +398,21 @@ def get_requests() -> pd.DataFrame:
 def refresh() -> None:
     """Invalidate the read cache after a write."""
     get_requests.clear()
+
+
+def known_staff() -> list[str]:
+    """Distinct staff names already in the data, most-frequent first — powers the
+    sign-in quick-pick so returning staff select instead of retyping. Returns []
+    (never raises) if the store is empty or unreachable."""
+    try:
+        df = get_requests()
+    except Exception:
+        return []
+    if df.empty or "staff" not in df.columns:
+        return []
+    names = df["staff"].astype(str).str.strip()
+    names = names[names != ""]
+    return names.value_counts().index.tolist()
 
 
 def add_request(row: dict) -> None:

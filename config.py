@@ -191,6 +191,7 @@ COLUMNS = [
     "quantity",
     "status",           # one of STATUSES
     "est_value",        # optional: value of the missed sale, in CURRENCY_CODE
+    "customer_name",    # optional: who to ask for on the callback
     "customer_contact", # optional: phone, for "we've got it now" callback
     "notify_customer",  # bool: customer asked to be told when it arrives
     "notes",

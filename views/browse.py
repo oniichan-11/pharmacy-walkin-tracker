@@ -14,7 +14,10 @@ import data
 import theme
 
 # Fields an admin may edit inline. Everything else is read-only for audit safety.
-_EDITABLE = ["item_clean", "category", "quantity", "status", "notes", "resolved"]
+_EDITABLE = [
+    "item_clean", "category", "quantity", "status", "notes",
+    "customer_name", "customer_contact", "resolved",
+]
 
 
 def render() -> None:
@@ -81,7 +84,7 @@ def _display_columns(view: pd.DataFrame) -> pd.DataFrame:
     cols = [
         "request_id", "timestamp", "branch", "staff", "item_clean",
         "category", "quantity", "status", "resolved", "notes",
-        "customer_contact", "notify_customer", "est_value",
+        "customer_name", "customer_contact", "notify_customer", "est_value",
     ]
     return view.loc[:, [c for c in cols if c in view.columns]].copy()
 
@@ -96,6 +99,8 @@ def _read_only_table(view: pd.DataFrame) -> None:
             "request_id": None,  # hide
             "timestamp": st.column_config.DatetimeColumn("When", format="YYYY-MM-DD HH:mm"),
             "item_clean": "Item",
+            "customer_name": "Customer",
+            "customer_contact": "Phone",
             "notify_customer": st.column_config.CheckboxColumn("Callback?"),
             "resolved": st.column_config.CheckboxColumn("Resolved"),
             "est_value": st.column_config.NumberColumn(
@@ -142,7 +147,8 @@ def _editor(master: pd.DataFrame, view: pd.DataFrame) -> None:
             "status": st.column_config.SelectboxColumn("Stock status", options=config.STATUSES),
             "resolved": st.column_config.CheckboxColumn("Resolved"),
             "notes": st.column_config.TextColumn("Notes"),
-            "customer_contact": st.column_config.TextColumn("Contact", disabled=True),
+            "customer_name": st.column_config.TextColumn("Customer"),
+            "customer_contact": st.column_config.TextColumn("Phone"),
             "notify_customer": st.column_config.CheckboxColumn("Callback?", disabled=True),
             "est_value": st.column_config.NumberColumn(
                 f"Est. value ({config.CURRENCY_SYMBOL})", format="%.0f"

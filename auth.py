@@ -15,6 +15,7 @@ from __future__ import annotations
 import streamlit as st
 
 import config
+import data
 import theme
 
 # Fallback admin PIN for local/dev use only (used by the edit/delete screen).
@@ -92,17 +93,36 @@ def require_login() -> bool:
     return False
 
 
+_NEW_NAME = "➕ New name…"
+
+
+def _known_names(branch: str) -> list[str]:
+    """Quick-pick roster: any names configured for the branch, plus everyone who
+    has signed in before (from the data), de-duplicated case-insensitively."""
+    seen: dict[str, str] = {}
+    for name in list(config.STAFF_BY_BRANCH.get(branch, [])) + data.known_staff():
+        key = name.casefold()
+        if key and key not in seen:
+            seen[key] = name
+    return list(seen.values())
+
+
 def _name_widget(branch: str) -> str:
-    """Name entry. Free-text by default; if a branch has a known-staff roster in
-    config, offer it as a quick-pick with a blank default plus an 'Other' box."""
-    roster = list(config.STAFF_BY_BRANCH.get(branch, []))
-    if not roster:
+    """Name entry. Returning staff pick themselves from the list (no retyping);
+    new staff choose 'New name…' and type it once — it then appears next time."""
+    known = _known_names(branch)
+    if not known:
         return st.text_input("Your name", placeholder="e.g. Ama Boateng")
 
     choice = st.selectbox(
-        "Your name", roster + ["Other…"], index=None, placeholder="Select your name"
+        "Your name",
+        known + [_NEW_NAME],
+        index=None,
+        placeholder="Select your name (or add a new one)",
     )
-    other = st.text_input("If 'Other…', type your name", placeholder="Your name")
-    if choice in (None, "Other…"):
-        return other
+    new = st.text_input(
+        "New name", placeholder="Only if you're not in the list above"
+    )
+    if choice in (None, _NEW_NAME):
+        return new
     return choice

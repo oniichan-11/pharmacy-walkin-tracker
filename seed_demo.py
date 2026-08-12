@@ -107,6 +107,7 @@ def build(rows: int, days: int) -> pd.DataFrame:
                 "quantity": qty,
                 "status": status,
                 "est_value": est,
+                "customer_name": "",
                 "customer_contact": "",
                 "notify_customer": random.random() < 0.15,
                 "notes": "",
